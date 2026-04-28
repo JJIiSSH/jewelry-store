@@ -9,7 +9,7 @@ import (
 type ProductImage struct {
 	ID         uuid.UUID
 	ProductID  uuid.UUID
-	Url        string
+	URL        string
 	Alt        string
 	OrderIndex int
 	IsPrimary  bool
