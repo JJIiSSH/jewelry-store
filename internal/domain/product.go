@@ -7,16 +7,8 @@ import (
 )
 
 type ProductStatus string
-type ProductType string
 
 const (
-	ProductTypeRing     ProductType = "ring"
-	ProductTypeNecklace ProductType = "necklace"
-	ProductTypeBracelet ProductType = "bracelet"
-	ProductTypeEarrings ProductType = "earrings"
-	ProductTypeBrooch   ProductType = "brooch"
-	ProductTypePendant  ProductType = "pendant"
-
 	ProductStatusPublished ProductStatus = "published"
 	ProductStatusDraft     ProductStatus = "draft"
 	ProductStatusSold      ProductStatus = "sold"
@@ -24,20 +16,20 @@ const (
 )
 
 type Product struct {
-	ID          uuid.UUID
-	CategoryID  uuid.UUID
-	Title       string
-	Slug        string
-	Description string
-	Story       string
-	Stone       string
-	Materials   []string
-	Price       float64
-	WeightG     float64
-	Size        string
-	IsUnique    bool
-	Stock       int
-	Status      ProductStatus
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          uuid.UUID     `db:"id"`
+	CategoryID  uuid.UUID     `db:"category_id"`
+	Title       string        `db:"title"`
+	Slug        string        `db:"slug"`
+	Description string        `db:"description"`
+	Story       string        `db:"story"`
+	Stone       string        `db:"stone"`
+	Materials   []string      `db:"materials"`
+	Price       float64       `db:"price"`
+	WeightG     float64       `db:"weight_g"`
+	Size        string        `db:"size"`
+	IsUnique    bool          `db:"is_unique"`
+	Stock       int           `db:"stock"`
+	Status      ProductStatus `db:"status"`
+	CreatedAt   time.Time     `db:"created_at"`
+	UpdatedAt   time.Time     `db:"updated_at"`
 }
