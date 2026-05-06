@@ -50,13 +50,13 @@ func main() {
 	id, err := productService.CreateProduct(context.Background(), testItem)
 
 	if err != nil {
-		fmt.Printf(err.Error())
+		log.Fatal(err)
 	}
 
 	productByID, err := productService.GetProductByID(context.Background(), id)
 
 	if err != nil {
-		fmt.Printf(err.Error())
+		log.Fatal(err)
 	}
 	fmt.Println(productByID.Title)
 }

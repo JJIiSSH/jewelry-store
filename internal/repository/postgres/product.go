@@ -115,7 +115,6 @@ func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.
 	if queryParams.MinPrice != 0 {
 		query += fmt.Sprintf(" AND price >= $%d", argIdx)
 		args = append(args, queryParams.MinPrice)
-		argIdx++
 	}
 
 	if queryParams.Sort != "" {
@@ -146,7 +145,7 @@ func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.
 		return []domain.Product{}, err
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 
