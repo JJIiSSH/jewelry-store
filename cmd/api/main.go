@@ -18,13 +18,13 @@ func main() {
 	var testMaterials []string
 	var newCategoryID uuid.UUID
 
-	queryCategory := "INSERT INTO categories (name, slug) VALUES ('Подвески', 'pendants') RETURNING id;"
+	queryCategory := "INSERT INTO categories (name, slug) VALUES ('Pendants', 'pendants') RETURNING id;"
 
-	testMaterials = append(testMaterials, "золото")
+	testMaterials = append(testMaterials, "gold")
 
-	testItem.Title = "Подвеска из благородных камней"
-	testItem.Description = "Премиум изделие"
-	testItem.Stone = "алмаз"
+	testItem.Title = "Noble Stone Pendant"
+	testItem.Description = "Premium piece"
+	testItem.Stone = "diamond"
 	testItem.Status = domain.ProductStatusDraft
 	testItem.Materials = testMaterials
 
