@@ -2,33 +2,26 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/JJIiSSH/jewelry-store/internal/domain"
+	"github.com/JJIiSSH/jewelry-store/internal/handler/httphandler"
+
 	"github.com/JJIiSSH/jewelry-store/internal/repository/postgres"
 	"github.com/JJIiSSH/jewelry-store/internal/service"
-	"github.com/google/uuid"
+	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	var testItem domain.Product
-	var testMaterials []string
-	var newCategoryID uuid.UUID
 
-	queryCategory := "INSERT INTO categories (name, slug) VALUES ('Pendants', 'pendants') RETURNING id;"
-
-	testMaterials = append(testMaterials, "gold")
-
-	testItem.Title = "Noble Stone Pendant"
-	testItem.Description = "Premium piece"
-	testItem.Stone = "diamond"
-	testItem.Status = domain.ProductStatusDraft
-	testItem.Materials = testMaterials
-
-	dsn := "postgres://IvanDev:1111@localhost:5432/mydb?sslmode=disable"
+	dsn := "postgres://IvanDev:1111@127.0.0.1:5432/mydb?sslmode=disable"
 
 	db, err := sqlx.Connect("postgres", dsn)
 
@@ -36,27 +29,45 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = db.QueryRow(queryCategory).Scan(&newCategoryID)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	testItem.CategoryID = newCategoryID
+	defer db.Close()
 
 	productRepo := postgres.NewProductRepository(db)
 	productService := service.NewProductService(productRepo)
+	productHandler := httphandler.NewProductHandler(productService)
 
-	id, err := productService.CreateProduct(context.Background(), testItem)
+	router := gin.Default()
 
-	if err != nil {
-		log.Fatal(err)
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
 	}
 
-	productByID, err := productService.GetProductByID(context.Background(), id)
+	v1 := router.Group("/api/v1")
 
-	if err != nil {
-		log.Fatal(err)
+	productHandler.RegisterRoutes(v1)
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-errCh:
+		log.Printf("server error: %v", err)
+	case sig := <-quit:
+		log.Printf("received signal %v, shutting down...", sig)
 	}
-	fmt.Println(productByID.Title)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("shutdown error: %v", err)
+	}
 }

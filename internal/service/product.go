@@ -25,6 +25,10 @@ func (s *ProductService) CreateProduct(ctx context.Context, item domain.Product)
 	item.UpdatedAt = time.Now()
 	item.Slug = slug.Make(item.Title)
 
+	if item.Status == "" {
+		item.Status = domain.ProductStatusDraft
+	}
+
 	_, err := s.repo.CreateProduct(ctx, item)
 
 	if err != nil {
