@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/JJIiSSH/jewelry-store/internal/domain"
@@ -52,7 +53,7 @@ func (r *ProductRepository) GetProductByID(ctx context.Context, ID uuid.UUID) (d
 		&product.UpdatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return domain.Product{}, fmt.Errorf("%w", domain.ErrNotFound)
 		}
 
@@ -235,10 +236,9 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, item domain.Produ
 			size = $10,
 			is_unique = $11,
 			stock = $12, 
-			status = $13,
-			updated_at = $14
+			updated_at = $13
 
-		WHERE id = $15
+		WHERE id = $14
 	`
 	res, err := r.db.ExecContext(ctx, query,
 		item.CategoryID,
@@ -253,7 +253,6 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, item domain.Produ
 		item.Size,
 		item.IsUnique,
 		item.Stock,
-		item.Status,
 		item.UpdatedAt,
 		item.ID)
 
