@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/JJIiSSH/jewelry-store/internal/domain"
+import (
+	"github.com/JJIiSSH/jewelry-store/internal/domain"
+	"github.com/google/uuid"
+)
 
 func RequestToProduct(r CreateProductRequest) domain.Product {
 
@@ -17,6 +20,41 @@ func RequestToProduct(r CreateProductRequest) domain.Product {
 		CategoryID:  r.CategoryID,
 		WeightG:     r.WeightG,
 		Stock:       r.Stock,
+	}
+}
+
+func UpdateRequestToProduct(id uuid.UUID, r UpdateProductRequest) domain.Product {
+	return domain.Product{
+		ID:          id,
+		Title:       r.Title,
+		IsUnique:    r.IsUnique,
+		Price:       r.Price,
+		Materials:   r.Materials,
+		Description: r.Description,
+		Story:       r.Story,
+		Stone:       r.Stone,
+		Size:        r.Size,
+		CategoryID:  r.CategoryID,
+		WeightG:     r.WeightG,
+		Stock:       r.Stock,
+	}
+}
+
+func QueryToProductFilter(q ListProductsQuery) domain.ProductFilter {
+
+	if q.Limit > 100 {
+		q.Limit = 100
+	}
+	sort := domain.Sort(q.Sort)
+
+	return domain.ProductFilter{
+		Stone:    q.Stone,
+		MinPrice: q.MinPrice,
+		MaxPrice: q.MaxPrice,
+		Category: q.Category,
+		Page:     q.Page,
+		Limit:    q.Limit,
+		Sort:     sort,
 	}
 }
 

@@ -42,10 +42,12 @@ func (s *ProductService) GetProductByID(ctx context.Context, id uuid.UUID) (doma
 }
 
 func (s *ProductService) GetProducts(ctx context.Context, queryParams domain.ProductFilter) ([]domain.Product, error) {
+
 	return s.repo.GetProducts(ctx, queryParams)
 }
 
 func (s *ProductService) UpdateProduct(ctx context.Context, item domain.Product) error {
+	item.Slug = slug.Make(item.Title)
 	item.UpdatedAt = time.Now()
 	return s.repo.UpdateProduct(ctx, item)
 }
