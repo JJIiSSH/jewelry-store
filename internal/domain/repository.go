@@ -24,8 +24,15 @@ type ProductFilter struct {
 	Limit    int
 }
 
+// ProductList is a page of products plus Total — the number of items matching
+// the filter ignoring LIMIT/OFFSET. It backs the paginated list response.
+type ProductList struct {
+	Items []Product
+	Total int
+}
+
 type ProductRepository interface {
-	GetProducts(ctx context.Context, queryParams ProductFilter) ([]Product, error)
+	GetProducts(ctx context.Context, queryParams ProductFilter) (ProductList, error)
 	GetProductByID(ctx context.Context, ID uuid.UUID) (Product, error)
 	CreateProduct(ctx context.Context, item Product) (uuid.UUID, error)
 	UpdateProduct(ctx context.Context, item Product) error
