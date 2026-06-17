@@ -32,3 +32,8 @@ type ProductRepository interface {
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	ChangeProductStatus(ctx context.Context, id uuid.UUID, status ProductStatus) error
 }
+
+type UserRepository interface {
+	CreateUser(ctx context.Context, user User) error
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+}
