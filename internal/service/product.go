@@ -41,7 +41,7 @@ func (s *ProductService) GetProductByID(ctx context.Context, id uuid.UUID) (doma
 	return s.repo.GetProductByID(ctx, id)
 }
 
-func (s *ProductService) GetProducts(ctx context.Context, queryParams domain.ProductFilter) ([]domain.Product, error) {
+func (s *ProductService) GetProducts(ctx context.Context, queryParams domain.ProductFilter) (domain.ProductList, error) {
 
 	return s.repo.GetProducts(ctx, queryParams)
 }

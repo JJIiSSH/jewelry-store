@@ -18,7 +18,7 @@ type CreateProductRequest struct {
 	Size        string               `json:"size" binding:"required,min=2,max=10"`
 	IsUnique    bool                 `json:"is_unique"`
 	Stock       int                  `json:"stock" binding:"gte=1"`
-	Status      domain.ProductStatus `json:"status"`
+	Status      domain.ProductStatus `json:"status" binding:"omitempty,oneof=draft published sold archived"`
 	CategoryID  uuid.UUID            `json:"category_id" binding:"required"`
 }
 

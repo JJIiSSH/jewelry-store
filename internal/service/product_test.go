@@ -26,8 +26,8 @@ func (m *mockProductRepo) GetProductByID(ctx context.Context, id uuid.UUID) (dom
 	return pr, m.returnerErr
 }
 
-func (m *mockProductRepo) GetProducts(ctx context.Context, queryParams domain.ProductFilter) ([]domain.Product, error) {
-	var prs []domain.Product
+func (m *mockProductRepo) GetProducts(ctx context.Context, queryParams domain.ProductFilter) (domain.ProductList, error) {
+	var prs domain.ProductList
 	return prs, m.returnerErr
 }
 

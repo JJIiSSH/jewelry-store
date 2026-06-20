@@ -66,7 +66,7 @@ func (r *ProductRepository) GetProductByID(ctx context.Context, ID uuid.UUID) (d
 
 }
 
-func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.ProductFilter) ([]domain.Product, error) {
+func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.ProductFilter) (domain.ProductList, error) {
 
 	var products []domain.Product
 	var args []any
@@ -86,7 +86,8 @@ func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.
 					  products.stock, 
 					  products.status, 
 					  products.created_at,  
-					  products.updated_at 
+					  products.updated_at, 
+					  COUNT(*) OVER() as total_count 
 			   FROM products 
 			   INNER JOIN categories ON products.category_id = categories.id
 			   WHERE 1=1
@@ -116,6 +117,7 @@ func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.
 	if queryParams.MinPrice != 0 {
 		query += fmt.Sprintf(" AND price >= $%d", argIdx)
 		args = append(args, queryParams.MinPrice)
+		argIdx++
 	}
 
 	if queryParams.Sort != "" {
@@ -135,19 +137,25 @@ func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.
 	}
 
 	if queryParams.Limit != 0 {
-		query += fmt.Sprintf(" LIMIT %d", queryParams.Limit)
+
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, queryParams.Limit)
+		argIdx++
+
 		offset := (queryParams.Page - 1) * queryParams.Limit
-		query += fmt.Sprintf(" OFFSET %d", offset)
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, offset)
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 
 	if err != nil {
-		return []domain.Product{}, err
+		return domain.ProductList{}, err
 	}
 
 	defer func() { _ = rows.Close() }()
 
+	var total int
 	for rows.Next() {
 
 		var product domain.Product
@@ -169,19 +177,20 @@ func (r *ProductRepository) GetProducts(ctx context.Context, queryParams domain.
 			&product.Stock,
 			&product.Status,
 			&product.CreatedAt,
-			&product.UpdatedAt); err != nil {
-			return nil, err
+			&product.UpdatedAt,
+			&total); err != nil {
+			return domain.ProductList{}, err
 		}
-
 		product.Materials = []string(materials)
 		products = append(products, product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return []domain.Product{}, err
+		return domain.ProductList{}, err
 	}
+	resultList := domain.ProductList{Items: products, Total: total}
 
-	return products, nil
+	return resultList, nil
 }
 
 func (r *ProductRepository) CreateProduct(ctx context.Context, item domain.Product) (uuid.UUID, error) {
@@ -211,8 +220,19 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, item domain.Produ
 		item.CreatedAt,
 		item.UpdatedAt)
 
+	var pqErr *pq.Error
+
 	if err != nil {
-		return uuid.Nil, err
+
+		switch {
+		case errors.As(err, &pqErr):
+			if pqErr.Code == "23505" {
+				return uuid.Nil, fmt.Errorf("create product conflict: %w", domain.ErrConflict)
+			}
+			return uuid.Nil, err
+		default:
+			return uuid.Nil, err
+		}
 	}
 
 	return item.ID, nil

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JJIiSSH/jewelry-store/internal/config"
 	"github.com/JJIiSSH/jewelry-store/internal/handler/httphandler"
 
 	"github.com/JJIiSSH/jewelry-store/internal/repository/postgres"
@@ -21,30 +23,43 @@ import (
 
 func main() {
 
-	dsn := "postgres://IvanDev:1111@127.0.0.1:5432/mydb?sslmode=disable"
+	cfg, err := config.Load()
 
-	db, err := sqlx.Connect("postgres", dsn)
+	if err != nil {
+		log.Fatalf("config error: %v", err)
+	}
+
+	db, err := sqlx.Connect("postgres", cfg.DB.DSN())
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("close database: %v", err)
+		}
+	}()
 
 	productRepo := postgres.NewProductRepository(db)
 	productService := service.NewProductService(productRepo)
 	productHandler := httphandler.NewProductHandler(productService)
 
+	userRepo := postgres.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo)
+	userHandler := httphandler.NewAuthHandler(authService)
+
 	router := gin.Default()
 
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
 		Handler: router,
 	}
 
 	v1 := router.Group("/api/v1")
 
 	productHandler.RegisterRoutes(v1)
+	userHandler.RegisterRoutes(v1)
 
 	errCh := make(chan error, 1)
 	go func() {

@@ -15,7 +15,7 @@ import (
 type ProductService interface {
 	CreateProduct(ctx context.Context, item domain.Product) (uuid.UUID, error)
 	GetProductByID(ctx context.Context, id uuid.UUID) (domain.Product, error)
-	GetProducts(ctx context.Context, queryParams domain.ProductFilter) ([]domain.Product, error)
+	GetProducts(ctx context.Context, queryParams domain.ProductFilter) (domain.ProductList, error)
 	UpdateProduct(ctx context.Context, item domain.Product) error
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	ChangeProductStatus(ctx context.Context, id uuid.UUID, status domain.ProductStatus) error
@@ -36,7 +36,7 @@ func (p *ProductHandler) CreateProduct(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": bindErrorMessage(err),
 		})
 
 		return
@@ -57,8 +57,7 @@ func (p *ProductHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id})
-
+	c.JSON(http.StatusCreated, gin.H{"data": gin.H{"id": id}})
 }
 
 func (p *ProductHandler) GetProductByID(c *gin.Context) {
@@ -86,7 +85,7 @@ func (p *ProductHandler) GetProductByID(c *gin.Context) {
 
 	resp := dto.ProductToResponse(product)
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, gin.H{"data": resp})
 }
 
 func (p *ProductHandler) ListProducts(c *gin.Context) {
@@ -95,13 +94,13 @@ func (p *ProductHandler) ListProducts(c *gin.Context) {
 
 	if err := c.ShouldBindQuery(&queryParams); err != nil {
 
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": bindErrorMessage(err)})
 		return
 
 	}
 	filter := dto.QueryToProductFilter(queryParams)
 
-	products, err := p.service.GetProducts(c.Request.Context(), filter)
+	productsStruct, err := p.service.GetProducts(c.Request.Context(), filter)
 
 	if err != nil {
 		log.Printf("list products: %v", err)
@@ -110,11 +109,11 @@ func (p *ProductHandler) ListProducts(c *gin.Context) {
 	}
 
 	resp := []dto.ProductResponse{}
-	for _, item := range products {
+	for _, item := range productsStruct.Items {
 		resp = append(resp, dto.ProductToResponse(item))
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, gin.H{"data": resp, "total": productsStruct.Total, "page": queryParams.Page, "limit": queryParams.Limit})
 }
 
 func (p *ProductHandler) UpdateProduct(c *gin.Context) {
@@ -132,7 +131,7 @@ func (p *ProductHandler) UpdateProduct(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": bindErrorMessage(err)})
 
 		return
 	}
@@ -197,7 +196,7 @@ func (p *ProductHandler) ChangeProductStatus(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": bindErrorMessage(err),
 		})
 
 		return
