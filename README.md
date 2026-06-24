@@ -6,9 +6,9 @@ stone, a list of materials, and an `is_unique` flag that keeps stock at one.
 
 I started this as a way to get comfortable with idiomatic Go service code —
 clean separation between transport, business logic and storage — rather than to
-ship the fanciest catalog on the internet. The product side is working
-end to end; the rest of the schema (users, cart, orders) is designed but not
-wired up yet.
+ship the fanciest catalog on the internet. The product side works end to end and
+user registration is live. JWT and refresh-token generation are implemented as
+service helpers, but login, token rotation and protected routes are not wired yet.
 
 ## Status
 
@@ -16,12 +16,18 @@ What works today:
 
 - Product catalog: create, read, update, delete, change status
 - Public listing with filtering (category, stone, price range), sorting and pagination
+- User registration (`POST /auth/register`) with bcrypt-hashed passwords
 - Postgres storage with migrations, config from the environment, graceful shutdown
+- Access-JWT generation with HS256 and opaque 256-bit refresh-token generation
 
-Designed in the DB schema but not implemented yet: auth (users + refresh tokens),
-cart, orders, product images. The `docker-compose` file already brings up Redis,
-MinIO, Jaeger and Prometheus so those pieces have somewhere to plug into when I
-get to them — none of them are touched by the running service right now.
+Auth is still in progress: the token helpers are not called by a login flow, the
+refresh-token repository is unfinished, and `/admin/*` has no JWT guard. Categories,
+product images, cart and orders currently exist only as schema/domain groundwork;
+there are no HTTP endpoints for them. The `docker-compose` file also starts Redis,
+MinIO, Jaeger and Prometheus, but the running API does not use them yet.
+
+The public product queries currently return every product status, including drafts.
+A published-only public catalog is a pending contract fix.
 
 ## Tech stack
 
@@ -29,6 +35,8 @@ get to them — none of them are touched by the running service right now.
 - PostgreSQL 16 via [sqlx](https://github.com/jmoiron/sqlx)
 - [Viper](https://github.com/spf13/viper) for config (12-factor, env vars)
 - [golang-migrate](https://github.com/golang-migrate/migrate) for schema migrations
+- [bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt) for password hashing
+- [golang-jwt/jwt](https://github.com/golang-jwt/jwt) for access tokens
 - `testify` for tests
 
 ## Layout
@@ -66,12 +74,14 @@ Apply the schema:
 make migrate-up
 ```
 
-Set the database password (the only required secret — everything else has a
-sensible default):
+Load the required secrets into the current shell. Local secrets are kept outside
+the repository in `~/.Codex/secrets/api-keys.env`:
 
 ```sh
-export DB_PASSWORD=1111
+source ~/.Codex/secrets/api-keys.env
 ```
+
+The file must export both `DB_PASSWORD` and `JWT_SECRET`.
 
 Run the API:
 
@@ -79,17 +89,20 @@ Run the API:
 make run
 ```
 
-It listens on `:8080` by default. Other knobs, all optional:
+It listens on `:8080` by default.
 
-| Variable      | Default     |
-|---------------|-------------|
-| `SERVER_PORT` | `8080`      |
-| `DB_HOST`     | `127.0.0.1` |
-| `DB_PORT`     | `5432`      |
-| `DB_USER`     | `IvanDev`   |
-| `DB_NAME`     | `mydb`      |
-| `DB_SSLMODE`  | `disable`   |
-| `DB_PASSWORD` | *(required)*|
+| Variable          | Default      |
+|-------------------|--------------|
+| `SERVER_PORT`     | `8080`       |
+| `DB_HOST`         | `127.0.0.1`  |
+| `DB_PORT`         | `5432`       |
+| `DB_USER`         | `IvanDev`    |
+| `DB_NAME`         | `mydb`       |
+| `DB_SSLMODE`      | `disable`    |
+| `DB_PASSWORD`     | *(required)* |
+| `JWT_SECRET`      | *(required)* |
+| `JWT_ACCESS_TTL`  | `15m`        |
+| `JWT_REFRESH_TTL` | `720h`       |
 
 Tests and linting:
 
@@ -98,19 +111,35 @@ make test
 make lint
 ```
 
+At the current auth work-in-progress checkpoint, tests and `go vet` pass. The
+linter reports the token helpers as unused until login is wired to them.
+
 ## API
 
-Everything lives under `/api/v1`. Public reads are open; writes sit under
-`/admin` and will move behind a JWT admin check once auth lands.
+Everything lives under `/api/v1`. The table below lists routes that are actually
+registered today. `docs/api-contracts.md` also describes target endpoints that
+have not been implemented yet.
+
+> **Warning:** `/admin/*` is not authenticated yet. Run the API only in a trusted
+> local development environment until the JWT admin guard is implemented.
 
 | Method | Path                          | What it does                  |
 |--------|-------------------------------|-------------------------------|
+| POST   | `/auth/register`              | Register a customer account   |
 | GET    | `/products`                   | List products (filter/sort/paginate) |
 | GET    | `/products/:id`               | Get one product by ID         |
 | POST   | `/admin/products`             | Create a product              |
 | PUT    | `/admin/products/:id`         | Update a product              |
 | PATCH  | `/admin/products/:id/status`  | Change status only            |
 | DELETE | `/admin/products/:id`         | Delete a product              |
+
+Registration currently returns only the created user ID:
+
+```json
+{ "data": { "id": "uuid" } }
+```
+
+Login, refresh and logout routes do not exist yet.
 
 List query parameters: `category`, `stone`, `min_price`, `max_price`,
 `sort` (`price_asc` \| `price_desc` \| `newest`), `page`, `limit`.
@@ -141,12 +170,15 @@ curl -X POST http://localhost:8080/api/v1/admin/products \
   }'
 ```
 
-Products start as `draft` and become visible in the public listing once their
-status is `published`.
+Products start as `draft`. The intended public contract is to expose only
+`published` products, but that filter is not enforced yet.
 
 ## What's next
 
-- Auth: registration, login, JWT + refresh tokens, admin guard on `/admin/*`
+- Finish auth: login, refresh-token persistence/rotation, logout and auth tests
+- Add JWT authentication and an admin-role guard to `/admin/*`
+- Stabilize the frontend catalog contract: published-only reads, categories,
+  product images and CORS or a Next.js API proxy
 - Cart and orders (price/title snapshots at checkout are already in the schema)
 - Image uploads to MinIO
 - Observability: wire up the Prometheus and Jaeger that compose already starts
